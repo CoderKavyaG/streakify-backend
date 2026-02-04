@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { getMe, updateSettings, linkTelegram } from "../controllers/user.controller";
+import { 
+  getMe, 
+  updateSettings, 
+  linkTelegram,
+  getGithubStatus,
+  updateGithubToken,
+} from "../controllers/user.controller";
 import { authenticateUser } from "../middleware/auth";
 
 const router = Router();
@@ -11,5 +17,9 @@ router.use(authenticateUser);
 router.get("/me", getMe);
 router.patch("/settings", updateSettings);
 router.post("/telegram", linkTelegram);
+
+// GitHub token routes
+router.get("/github-status", getGithubStatus);
+router.post("/github-token", updateGithubToken);
 
 export default router;

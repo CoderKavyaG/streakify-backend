@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { supabaseAdmin } from "../config/supabase";
+import { githubService } from "../services/github.service";
 
 // GET /api/user/me - Get current user profile
 export const getMe = async (req: Request, res: Response): Promise<void> => {
@@ -13,7 +14,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
 
     const { data: user, error } = await supabaseAdmin
       .from("users")
-      .select("*")
+      .select("id, github_id, github_username, avatar_url, email, telegram_chat_id, check_time, timezone, created_at, updated_at")
       .eq("id", userId)
       .single();
 
@@ -22,7 +23,13 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.json({ user });
+    // Check if GitHub token is valid (don't expose the token itself)
+    const hasGithubToken = !!req.user?.github_access_token;
+
+    res.json({ 
+      user,
+      hasGithubToken,
+    });
   } catch (error) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Failed to fetch user" });
@@ -100,5 +107,82 @@ export const linkTelegram = async (req: Request, res: Response): Promise<void> =
   } catch (error) {
     console.error("Link Telegram error:", error);
     res.status(500).json({ error: "Failed to link Telegram" });
+  }
+};
+
+// GET /api/user/github-status - Check GitHub token status
+export const getGithubStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const githubToken = req.user?.github_access_token;
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    if (!githubToken) {
+      res.json({
+        hasToken: false,
+        isValid: false,
+        message: "No GitHub token stored. Please re-authenticate with GitHub.",
+      });
+      return;
+    }
+
+    // Validate the token
+    const isValid = await githubService.validateToken(githubToken);
+
+    res.json({
+      hasToken: true,
+      isValid,
+      message: isValid 
+        ? "GitHub token is valid" 
+        : "GitHub token has expired. Please re-authenticate with GitHub.",
+    });
+  } catch (error) {
+    console.error("GitHub status error:", error);
+    res.status(500).json({ error: "Failed to check GitHub status" });
+  }
+};
+
+// POST /api/user/github-token - Update GitHub access token
+export const updateGithubToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { github_access_token } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    if (!github_access_token) {
+      res.status(400).json({ error: "GitHub access token is required" });
+      return;
+    }
+
+    // Validate the token before storing
+    const isValid = await githubService.validateToken(github_access_token);
+
+    if (!isValid) {
+      res.status(400).json({ error: "Invalid GitHub token provided" });
+      return;
+    }
+
+    const { error } = await supabaseAdmin
+      .from("users")
+      .update({ github_access_token })
+      .eq("id", userId);
+
+    if (error) {
+      res.status(500).json({ error: "Failed to update GitHub token" });
+      return;
+    }
+
+    res.json({ message: "GitHub token updated successfully" });
+  } catch (error) {
+    console.error("Update GitHub token error:", error);
+    res.status(500).json({ error: "Failed to update GitHub token" });
   }
 };

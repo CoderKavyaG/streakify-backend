@@ -8,14 +8,15 @@ export const getContributions = async (req: Request, res: Response): Promise<voi
   try {
     const userId = req.user?.id;
     const githubUsername = req.user?.github_username;
+    const githubToken = req.user?.github_access_token;
 
     if (!userId || !githubUsername) {
       res.status(401).json({ error: "Unauthorized or GitHub username not found" });
       return;
     }
 
-    // Fetch contributions from GitHub
-    const contributions = await githubService.getContributions(githubUsername);
+    // Fetch contributions from GitHub (use user's token for private repo access)
+    const contributions = await githubService.getContributions(githubUsername, githubToken);
 
     // Optionally store today's contribution in database for tracking
     const today = new Date().toISOString().split("T")[0];
@@ -48,13 +49,14 @@ export const getContributions = async (req: Request, res: Response): Promise<voi
 export const getTodayStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const githubUsername = req.user?.github_username;
+    const githubToken = req.user?.github_access_token;
 
     if (!githubUsername) {
       res.status(401).json({ error: "GitHub username not found" });
       return;
     }
 
-    const hasContributed = await githubService.hasContributedToday(githubUsername);
+    const hasContributed = await githubService.hasContributedToday(githubUsername, githubToken);
     const today = new Date().toISOString().split("T")[0];
 
     res.json({
@@ -72,14 +74,15 @@ export const getStreakStats = async (req: Request, res: Response): Promise<void>
   try {
     const userId = req.user?.id;
     const githubUsername = req.user?.github_username;
+    const githubToken = req.user?.github_access_token;
 
     if (!userId || !githubUsername) {
       res.status(401).json({ error: "Unauthorized or GitHub username not found" });
       return;
     }
 
-    // Fetch contributions from GitHub
-    const contributions = await githubService.getContributions(githubUsername);
+    // Fetch contributions from GitHub (use user's token for private repo access)
+    const contributions = await githubService.getContributions(githubUsername, githubToken);
 
     // Get saved days count (days where we sent reminder and user still contributed)
     const { count: savedDays } = await supabaseAdmin
@@ -102,14 +105,15 @@ export const syncContributions = async (req: Request, res: Response): Promise<vo
   try {
     const userId = req.user?.id;
     const githubUsername = req.user?.github_username;
+    const githubToken = req.user?.github_access_token;
 
     if (!userId || !githubUsername) {
       res.status(401).json({ error: "Unauthorized or GitHub username not found" });
       return;
     }
 
-    // Fetch all contributions from GitHub
-    const contributions = await githubService.getContributions(githubUsername);
+    // Fetch all contributions from GitHub (use user's token for private repo access)
+    const contributions = await githubService.getContributions(githubUsername, githubToken);
 
     // Store last 30 days in database
     const last30Days = contributions.slice(-30);

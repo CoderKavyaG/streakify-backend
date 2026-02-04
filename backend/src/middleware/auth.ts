@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { supabase } from "../config/supabase";
+import { supabase, supabaseAdmin } from "../config/supabase";
 
 // Extend Express Request to include user
 declare global {
@@ -9,6 +9,7 @@ declare global {
         id: string;
         email?: string;
         github_username?: string;
+        github_access_token?: string;
       };
     }
   }
@@ -37,11 +38,19 @@ export const authenticateUser = async (
       return;
     }
 
+    // Get additional user data from our users table (including GitHub token)
+    const { data: userData } = await supabaseAdmin
+      .from("users")
+      .select("github_access_token, github_username")
+      .eq("id", user.id)
+      .single();
+
     // Attach user to request
     req.user = {
       id: user.id,
       email: user.email,
-      github_username: user.user_metadata?.user_name,
+      github_username: userData?.github_username || user.user_metadata?.user_name,
+      github_access_token: userData?.github_access_token,
     };
 
     next();

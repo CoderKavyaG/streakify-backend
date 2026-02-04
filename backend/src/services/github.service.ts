@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const GITHUB_GRAPHQL_URL = "https://api.github.com/graphql";
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_SERVER_TOKEN = process.env.GITHUB_TOKEN;
 
 export interface ContributionDay {
   date: string;
@@ -50,26 +50,33 @@ const CONTRIBUTIONS_QUERY = `
 `;
 
 export class GitHubService {
-  private token: string;
-
-  constructor() {
-    if (!GITHUB_TOKEN) {
-      console.warn("WARNING: GITHUB_TOKEN is not set in environment variables");
+  /**
+   * Get the token to use - prefer user token, fallback to server token
+   */
+  private getToken(userToken?: string): string {
+    if (userToken) {
+      return userToken;
     }
-    this.token = GITHUB_TOKEN || "";
+    if (!GITHUB_SERVER_TOKEN) {
+      throw new Error("No GitHub token available");
+    }
+    return GITHUB_SERVER_TOKEN;
   }
 
   /**
    * Fetch contribution calendar for a GitHub user
-   * Returns all contribution days for the past year
+   * @param username - GitHub username
+   * @param userToken - Optional user's GitHub access token (for private repo access)
    */
-  async getContributions(username: string): Promise<ContributionDay[]> {
+  async getContributions(username: string, userToken?: string): Promise<ContributionDay[]> {
     try {
+      const token = this.getToken(userToken);
+      
       const response = await fetch(GITHUB_GRAPHQL_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           query: CONTRIBUTIONS_QUERY,
@@ -114,13 +121,15 @@ export class GitHubService {
   /**
    * Get total contributions for the year
    */
-  async getTotalContributions(username: string): Promise<number> {
+  async getTotalContributions(username: string, userToken?: string): Promise<number> {
     try {
+      const token = this.getToken(userToken);
+      
       const response = await fetch(GITHUB_GRAPHQL_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           query: CONTRIBUTIONS_QUERY,
@@ -144,12 +153,28 @@ export class GitHubService {
   /**
    * Check if user has contributed today
    */
-  async hasContributedToday(username: string): Promise<boolean> {
-    const contributions = await this.getContributions(username);
+  async hasContributedToday(username: string, userToken?: string): Promise<boolean> {
+    const contributions = await this.getContributions(username, userToken);
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     
     const todayContribution = contributions.find(day => day.date === today);
     return todayContribution ? todayContribution.contributionCount > 0 : false;
+  }
+
+  /**
+   * Validate if a GitHub token is still valid
+   */
+  async validateToken(token: string): Promise<boolean> {
+    try {
+      const response = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 }
 
