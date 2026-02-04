@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import userRoutes from "./routes/user.routes";
 import contributionsRoutes from "./routes/contributions.routes";
+import telegramRoutes from "./routes/telegram.routes";
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +44,7 @@ app.get("/api/test/github/:username", async (req, res) => {
 // API Routes
 app.use("/api/user", userRoutes);
 app.use("/api/contributions", contributionsRoutes);
+app.use("/api/telegram", telegramRoutes);
 
 // 404 handler
 app.use((req, res) => {
