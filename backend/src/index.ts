@@ -5,6 +5,7 @@ import userRoutes from "./routes/user.routes";
 import contributionsRoutes from "./routes/contributions.routes";
 import telegramRoutes from "./routes/telegram.routes";
 import notificationRoutes from "./routes/notification.routes";
+import { startNotificationJob } from "./jobs/notifications.job";
 
 // Load environment variables
 dotenv.config();
@@ -57,4 +58,7 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  
+  // Start cron jobs
+  startNotificationJob();
 });
