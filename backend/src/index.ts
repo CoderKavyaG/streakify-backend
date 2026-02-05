@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import userRoutes from "./routes/user.routes";
 import contributionsRoutes from "./routes/contributions.routes";
 import telegramRoutes from "./routes/telegram.routes";
+import notificationRoutes from "./routes/notification.routes";
 
 // Load environment variables
 dotenv.config();
@@ -45,6 +46,7 @@ app.get("/api/test/github/:username", async (req, res) => {
 app.use("/api/user", userRoutes);
 app.use("/api/contributions", contributionsRoutes);
 app.use("/api/telegram", telegramRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // 404 handler
 app.use((req, res) => {
