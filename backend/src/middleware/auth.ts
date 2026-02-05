@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { supabase, supabaseAdmin } from "../config/supabase";
 
-// Extend Express Request to include user
 declare global {
   namespace Express {
     interface Request {
@@ -29,8 +28,6 @@ export const authenticateUser = async (
     }
 
     const token = authHeader.split(" ")[1];
-
-    // Verify the JWT token with Supabase
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
@@ -38,14 +35,12 @@ export const authenticateUser = async (
       return;
     }
 
-    // Get additional user data from our users table (including GitHub token)
     const { data: userData } = await supabaseAdmin
       .from("users")
       .select("github_access_token, github_username")
       .eq("id", user.id)
       .single();
 
-    // Attach user to request
     req.user = {
       id: user.id,
       email: user.email,
