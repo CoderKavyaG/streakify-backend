@@ -1,24 +1,77 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+
+// Load environment variables first
+dotenv.config();
+
+// Import routes
 import userRoutes from "./routes/user.routes";
 import contributionsRoutes from "./routes/contributions.routes";
 import telegramRoutes from "./routes/telegram.routes";
 import notificationRoutes from "./routes/notification.routes";
-import { startNotificationJob } from "./jobs/notifications.job";
 
-// Load environment variables
-dotenv.config();
+// Import middleware
+import {
+  helmetMiddleware,
+  generalRateLimiter,
+  hppMiddleware,
+  securityHeaders,
+  sanitizeRequest,
+  logSuspiciousActivity,
+} from "./middleware/security";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { startNotificationJob } from "./jobs/notifications.job";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === "production";
 
-// Middleware
+// ============================================
+// SECURITY MIDDLEWARE (Applied First)
+// ============================================
+
+// Helmet - Set security HTTP headers
+app.use(helmetMiddleware);
+
+// Trust proxy (needed for rate limiting behind reverse proxy)
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
+
+// Rate limiting
+app.use(generalRateLimiter);
+
+// HPP - Prevent HTTP Parameter Pollution
+app.use(hppMiddleware);
+
+// Custom security headers
+app.use(securityHeaders);
+
+// Log suspicious activity
+app.use(logSuspiciousActivity);
+
+// ============================================
+// BODY PARSING & CORS
+// ============================================
+
+// CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: isProduction 
+    ? process.env.FRONTEND_URL 
+    : [process.env.FRONTEND_URL || "http://localhost:3000", "http://localhost:3001"],
   credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  maxAge: 86400, // 24 hours
 }));
-app.use(express.json());
+
+// Body parsing with size limits
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+
+// Sanitize request bodies
+app.use(sanitizeRequest);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -49,15 +102,25 @@ app.use("/api/contributions", contributionsRoutes);
 app.use("/api/telegram", telegramRoutes);
 app.use("/api/notifications", notificationRoutes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
-});
+// ============================================
+// ERROR HANDLING (Applied Last)
+// ============================================
 
-// Start server
+// 404 handler for undefined routes
+app.use(notFoundHandler);
+
+// Global error handler
+app.use(errorHandler);
+
+// ============================================
+// START SERVER
+// ============================================
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔒 Security middleware: enabled`);
+  console.log(`🌍 Environment: ${isProduction ? "production" : "development"}`);
   
   // Start cron jobs
   startNotificationJob();

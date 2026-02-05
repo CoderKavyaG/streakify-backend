@@ -7,6 +7,12 @@ import {
   updateGithubToken,
 } from "../controllers/user.controller";
 import { authenticateUser } from "../middleware/auth";
+import { 
+  validateUserSettings, 
+  validateTelegramLink, 
+  validateGithubToken 
+} from "../middleware/validation";
+import { strictRateLimiter } from "../middleware/security";
 
 const router = Router();
 
@@ -15,11 +21,11 @@ router.use(authenticateUser);
 
 // User routes
 router.get("/me", getMe);
-router.patch("/settings", updateSettings);
-router.post("/telegram", linkTelegram);
+router.patch("/settings", validateUserSettings, updateSettings);
+router.post("/telegram", validateTelegramLink, linkTelegram);
 
-// GitHub token routes
+// GitHub token routes (rate limited - sensitive)
 router.get("/github-status", getGithubStatus);
-router.post("/github-token", updateGithubToken);
+router.post("/github-token", strictRateLimiter, validateGithubToken, updateGithubToken);
 
 export default router;

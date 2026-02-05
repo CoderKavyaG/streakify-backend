@@ -6,15 +6,17 @@ import {
   getNotificationHistory,
 } from "../controllers/notification.controller";
 import { authenticateUser } from "../middleware/auth";
+import { validateEmail, validateReminderType } from "../middleware/validation";
+import { strictRateLimiter } from "../middleware/security";
 
 const router = Router();
 
-// Public test endpoint (for quick testing without auth)
-router.post("/test-email", sendTestEmail);
+// Public test endpoint (rate limited - prevents abuse)
+router.post("/test-email", strictRateLimiter, validateEmail, sendTestEmail);
 
 // Protected routes
-router.post("/send-reminder", authenticateUser, sendReminder);
-router.post("/send-telegram", authenticateUser, sendTelegramTest);
+router.post("/send-reminder", authenticateUser, strictRateLimiter, validateReminderType, sendReminder);
+router.post("/send-telegram", authenticateUser, strictRateLimiter, sendTelegramTest);
 router.get("/history", authenticateUser, getNotificationHistory);
 
 export default router;
