@@ -3,15 +3,17 @@ import rateLimit from "express-rate-limit";
 import hpp from "hpp";
 import { Request, Response, NextFunction } from "express";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export const helmetMiddleware = helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: isProduction ? {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
     },
-  },
+  } : false,
   crossOriginEmbedderPolicy: false,
 });
 

@@ -48,6 +48,10 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString(), version: "1.0.0" });
+});
+
 app.use("/api/user", userRoutes);
 app.use("/api/contributions", contributionsRoutes);
 app.use("/api/telegram", telegramRoutes);
