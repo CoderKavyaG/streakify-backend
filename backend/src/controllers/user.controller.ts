@@ -18,7 +18,18 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       .eq("id", userId)
       .single();
 
-    if (error || !user) {
+    if (error) {
+      if (error.code === "PGRST116") {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      console.error("Supabase user fetch error:", error);
+      res.status(500).json({ error: "Database error", details: error.message });
+      return;
+    }
+
+    if (!user) {
+      // Should not happen with .single() unless table is empty and no error thrown?
       res.status(404).json({ error: "User not found" });
       return;
     }
@@ -26,7 +37,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
     // Check if GitHub token is valid (don't expose the token itself)
     const hasGithubToken = !!req.user?.github_access_token;
 
-    res.json({ 
+    res.json({
       user,
       hasGithubToken,
     });
@@ -64,7 +75,8 @@ export const updateSettings = async (req: Request, res: Response): Promise<void>
       .single();
 
     if (error) {
-      res.status(500).json({ error: "Failed to update settings" });
+      console.error("Supabase update settings error:", error);
+      res.status(500).json({ error: "Failed to update settings", details: error.message });
       return;
     }
 
@@ -136,8 +148,8 @@ export const getGithubStatus = async (req: Request, res: Response): Promise<void
     res.json({
       hasToken: true,
       isValid,
-      message: isValid 
-        ? "GitHub token is valid" 
+      message: isValid
+        ? "GitHub token is valid"
         : "GitHub token has expired. Please re-authenticate with GitHub.",
     });
   } catch (error) {
