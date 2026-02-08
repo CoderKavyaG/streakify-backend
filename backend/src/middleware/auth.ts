@@ -41,14 +41,16 @@ export const authenticateUser = async (
       .eq("id", user.id)
       .single();
 
-    if (!userData) {
-      await supabaseAdmin.from("users").upsert({
-        id: user.id,
-        email: user.email,
-        github_username: user.user_metadata?.user_name,
-        github_access_token: user.user_metadata?.provider_token,
-      });
-    }
+    await supabaseAdmin.from("users").upsert({
+      id: user.id,
+      email: user.email,
+      github_username: user.user_metadata?.user_name,
+      github_id: user.user_metadata?.provider_id,
+      avatar_url: user.user_metadata?.avatar_url,
+      ...(user.user_metadata?.provider_token && {
+        github_access_token: user.user_metadata.provider_token
+      }),
+    });
 
     req.user = {
       id: user.id,
