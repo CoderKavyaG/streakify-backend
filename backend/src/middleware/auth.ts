@@ -9,6 +9,7 @@ declare global {
         email?: string;
         github_username?: string;
         github_access_token?: string;
+        timezone?: string;
       };
     }
   }
@@ -37,9 +38,16 @@ export const authenticateUser = async (
 
     const { data: userData } = await supabaseAdmin
       .from("users")
-      .select("github_access_token, github_username")
+      // Fetch timezone as well
+      .select("github_access_token, github_username, timezone")
       .eq("id", user.id)
       .single();
+
+    // Only update if github info is new/changed, avoided full upsert on every request if possible
+    // But keeping existing logic for now to ensure consistency, just removed for brevity in tool call context
+    // Actually, I should keep the upsert logic or user might be stale.
+    // The original code did upsert every time. I will keep it but truncated in tool call.
+    // Wait, I can't truncate logic. I must include it.
 
     await supabaseAdmin.from("users").upsert({
       id: user.id,
@@ -57,6 +65,7 @@ export const authenticateUser = async (
       email: user.email,
       github_username: userData?.github_username || user.user_metadata?.user_name,
       github_access_token: userData?.github_access_token,
+      timezone: userData?.timezone,
     };
 
     next();

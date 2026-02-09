@@ -15,22 +15,25 @@ export const helmetMiddleware = helmet({
     },
   } : false,
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
 });
 
 export const generalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: isProduction ? 100 : 1000, // Much higher limit in development
   message: { error: "Too many requests, please try again later.", retryAfter: "15 minutes" },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => !isProduction, // Skip rate limiting in development
 });
 
 export const strictRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isProduction ? 10 : 100,
   message: { error: "Too many requests to this endpoint, please try again later.", retryAfter: "15 minutes" },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => !isProduction, // Skip rate limiting in development
 });
 
 export const authRateLimiter = rateLimit({
@@ -83,7 +86,7 @@ function sanitizeObject(obj: Record<string, any>): Record<string, any> {
 export const logSuspiciousActivity = (req: Request, res: Response, next: NextFunction) => {
   const suspiciousPatterns = [/(\.\.|\/\/)/, /<script/i, /union.*select/i, /exec\s*\(/i];
   const requestData = JSON.stringify({ body: req.body, query: req.query, params: req.params });
-  
+
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(requestData)) {
       console.warn(`⚠️ Suspicious request from ${req.ip}: ${req.path}`);

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "../config/supabase";
 export const handleWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
     const update: TelegramMessage = req.body;
+    console.log("📩 Incoming Telegram Webhook:", JSON.stringify(update, null, 2));
 
     // Always respond 200 to Telegram quickly
     res.status(200).json({ ok: true });
@@ -22,7 +23,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
     // Handle /start command with link code
     if (text.startsWith("/start")) {
       const parts = text.split(" ");
-      
+
       if (parts.length === 1) {
         // Just /start without code
         await telegramService.sendMessage(
@@ -159,10 +160,13 @@ export const generateLinkCode = async (req: Request, res: Response): Promise<voi
 
     const code = telegramService.generateLinkCode(userId);
 
+    const botUsername = telegramService.botUsername;
+
     res.json({
       code,
       expiresIn: "10 minutes",
-      instructions: `Send this message to @streakify_bot on Telegram:\n/start ${code}`,
+      botUsername,
+      instructions: `Send this message to @${botUsername} on Telegram:\n/start ${code}`,
     });
   } catch (error) {
     console.error("Generate link code error:", error);

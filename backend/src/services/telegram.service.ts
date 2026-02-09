@@ -36,6 +36,7 @@ export interface SendMessageResponse {
 export class TelegramService {
   private token: string;
   private apiUrl: string;
+  public botUsername: string = "streakify_bot"; // Default fallback
 
   // In-memory store for link codes (userId -> code)
   private linkCodes: Map<string, { code: string; expiresAt: number }> = new Map();
@@ -48,6 +49,22 @@ export class TelegramService {
     }
     this.token = TELEGRAM_BOT_TOKEN || "";
     this.apiUrl = `${TELEGRAM_API_URL}${this.token}`;
+
+    // Fetch bot username on startup
+    this.fetchBotUsername();
+  }
+
+  private async fetchBotUsername() {
+    try {
+      const response = await fetch(`${this.apiUrl}/getMe`);
+      const data = await response.json() as { ok: boolean; result: { username: string } };
+      if (data.ok && data.result?.username) {
+        this.botUsername = data.result.username;
+        console.log(`🤖 Bot username fetched: @${this.botUsername}`);
+      }
+    } catch (error) {
+      console.error("Failed to fetch bot username:", error);
+    }
   }
 
   /**
@@ -93,7 +110,7 @@ export class TelegramService {
 
     // Generate random 6-character code
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
+
     // Store with 10-minute expiration
     const expiresAt = Date.now() + 10 * 60 * 1000;
     this.linkCodes.set(userId, { code, expiresAt });
@@ -107,13 +124,13 @@ export class TelegramService {
    */
   validateLinkCode(code: string): string | null {
     const userId = this.codeToUser.get(code.toUpperCase());
-    
+
     if (!userId) {
       return null;
     }
 
     const linkData = this.linkCodes.get(userId);
-    
+
     if (!linkData || Date.now() > linkData.expiresAt) {
       // Code expired, clean up
       this.codeToUser.delete(code.toUpperCase());

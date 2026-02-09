@@ -56,8 +56,10 @@ export const getTodayStatus = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const hasContributed = await githubService.hasContributedToday(githubUsername, githubToken);
-    const today = new Date().toISOString().split("T")[0];
+    const timezone = req.user?.timezone || "UTC";
+
+    const hasContributed = await githubService.hasContributedToday(githubUsername, githubToken, timezone);
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
 
     res.json({
       date: today,

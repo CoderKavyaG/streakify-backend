@@ -71,7 +71,7 @@ export class GitHubService {
   async getContributions(username: string, userToken?: string): Promise<ContributionDay[]> {
     try {
       const token = this.getToken(userToken);
-      
+
       const response = await fetch(GITHUB_GRAPHQL_URL, {
         method: "POST",
         headers: {
@@ -124,7 +124,7 @@ export class GitHubService {
   async getTotalContributions(username: string, userToken?: string): Promise<number> {
     try {
       const token = this.getToken(userToken);
-      
+
       const response = await fetch(GITHUB_GRAPHQL_URL, {
         method: "POST",
         headers: {
@@ -153,10 +153,15 @@ export class GitHubService {
   /**
    * Check if user has contributed today
    */
-  async hasContributedToday(username: string, userToken?: string): Promise<boolean> {
+  /**
+   * Check if user has contributed today in their timezone
+   */
+  async hasContributedToday(username: string, userToken?: string, timezone: string = "UTC"): Promise<boolean> {
     const contributions = await this.getContributions(username, userToken);
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    
+
+    // Get today's date in user's timezone
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone }); // YYYY-MM-DD
+
     const todayContribution = contributions.find(day => day.date === today);
     return todayContribution ? todayContribution.contributionCount > 0 : false;
   }
