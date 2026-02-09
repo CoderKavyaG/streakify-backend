@@ -86,11 +86,12 @@ export const getStreakStats = async (req: Request, res: Response): Promise<void>
     // Fetch contributions from GitHub (use user's token for private repo access)
     const contributions = await githubService.getContributions(githubUsername, githubToken);
 
-    // Get saved days count (days where we sent reminder and user still contributed)
+    // Get saved days count (days where we sent URGENT reminder and user still contributed)
     const { count: savedDays } = await supabaseAdmin
       .from("notifications_log")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("type", "streak_saved"); // Only count actual saves, not just reminders sent
 
     // Calculate streak stats
     const stats = streakService.calculateStreakStats(contributions, savedDays || 0);

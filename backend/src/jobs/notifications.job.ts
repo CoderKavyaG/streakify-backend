@@ -7,6 +7,7 @@ import { streakService } from '../services/streak.service';
 
 const notifiedUsersToday = new Map<string, boolean>();
 const urgentRemindersToday = new Map<string, boolean>();
+const emailSentToday = new Map<string, boolean>();
 
 export function startNotificationJob() {
   // Run every minute to check for specific user times
@@ -22,7 +23,6 @@ export function startNotificationJob() {
 
     // Handle "24:00" edge case if any, ensuring "HH:mm" format
     const formattedTime = currentTime.length === 5 ? currentTime : `0${currentTime}`;
-    // console.log(`⏰ [${formattedTime}] Checking reminders...`); 
 
     try {
       const { data: users, error } = await supabaseAdmin
@@ -36,7 +36,6 @@ export function startNotificationJob() {
 
       for (const user of users) {
         try {
-          // Use user's timezone or default to Kolkata for now
           const timezone = user.timezone || 'Asia/Kolkata';
           const contributed = await githubService.hasContributedToday(
             user.github_username,
@@ -49,13 +48,15 @@ export function startNotificationJob() {
             const contributions = await githubService.getContributions(user.github_username, user.github_access_token);
             const stats = streakService.calculateStreakStats(contributions);
 
-            if (user.email) {
+            // Check if email already sent today
+            if (user.email && !emailSentToday.has(user.id)) {
               await emailService.sendStreakReminder({
                 to: user.email,
                 username: user.github_username,
                 currentStreak: stats.currentStreak,
                 type: 'friendly'
               });
+              emailSentToday.set(user.id, true);
             }
 
             if (user.telegram_chat_id) {
@@ -80,6 +81,7 @@ export function startNotificationJob() {
     } catch (e) { console.error('Notification check error:', e); }
   }, { timezone: 'Asia/Kolkata' });
 
+  // 11 PM Urgent Reminder (Telegram ONLY)
   cron.schedule('0 23 * * *', async () => {
     console.log('🚨 [23:00] Urgent reminder check...');
 
@@ -89,27 +91,29 @@ export function startNotificationJob() {
 
       for (const user of users) {
         try {
-          const contributed = await githubService.hasContributedToday(user.github_username, user.github_access_token);
+          const timezone = user.timezone || 'Asia/Kolkata';
+          const contributed = await githubService.hasContributedToday(user.github_username, user.github_access_token, timezone);
 
           if (!contributed) {
-            const contributions = await githubService.getContributions(user.github_username, user.github_access_token);
-            const stats = streakService.calculateStreakStats(contributions);
-
-            if (user.email) {
-              await emailService.sendStreakReminder({ to: user.email, username: user.github_username, currentStreak: stats.currentStreak, type: 'urgent' });
-            }
-
+            // Only proceed if user has Telegram, as email is disabled for urgent reminder
             if (user.telegram_chat_id) {
-              await telegramService.sendMessage(user.telegram_chat_id, `🚨 URGENT: 1 hour left!\n\n${user.github_username}, your ${stats.currentStreak}-day streak is about to break!\n\nCommit NOW! ⏰`);
-            }
+              const contributions = await githubService.getContributions(user.github_username, user.github_access_token);
+              const stats = streakService.calculateStreakStats(contributions);
 
-            urgentRemindersToday.set(user.id, true);
+              await telegramService.sendMessage(
+                user.telegram_chat_id,
+                `1 hr to day end! Do commit the stuff ⏰\n\n${user.github_username}, your ${stats.currentStreak}-day streak is about to break!`
+              );
+
+              urgentRemindersToday.set(user.id, true);
+            }
           }
         } catch (e) { console.error(`Error: ${user.github_username}`, e); }
       }
     } catch (e) { console.error('Urgent check error:', e); }
   }, { timezone: 'Asia/Kolkata' });
 
+  // Midnight Sync & Saved Streak Check
   cron.schedule('5 0 * * *', async () => {
     console.log('🌙 [00:05] Midnight sync...');
 
@@ -135,6 +139,7 @@ export function startNotificationJob() {
               const stats = streakService.calculateStreakStats(contributions);
 
               if (user.email) {
+                // This is a new day, so sending email is fine and won't conflict with yesterday's limit
                 await emailService.sendStreakReminder({ to: user.email, username: user.github_username, currentStreak: stats.currentStreak, type: 'saved' });
               }
 
@@ -155,6 +160,7 @@ export function startNotificationJob() {
 
       notifiedUsersToday.clear();
       urgentRemindersToday.clear();
+      emailSentToday.clear();
     } catch (e) { console.error('Midnight sync error:', e); }
   }, { timezone: 'Asia/Kolkata' });
 
